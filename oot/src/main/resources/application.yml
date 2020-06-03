@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@10.251.5.243:1521:POWERDES
+    username: powerdesk
+    password: powerlong5175
+    driver-class-name: oracle.jdbc.driver.OracleDriver
+server:
+  port: 8080
