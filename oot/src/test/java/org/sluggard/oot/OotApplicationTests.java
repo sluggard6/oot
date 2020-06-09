@@ -240,13 +240,15 @@ class OotApplicationTests {
 					cell.setCellStyle(style);
 					cell.setCellValue(ti.getcComments());
 				}
+//				sheet.autoSizeColumn(0); //调整第一列宽度
+//		        sheet.autoSizeColumn(1); //调整第二列宽度
+//		        sheet.autoSizeColumn(2); //调整第三列宽度
+//		        sheet.autoSizeColumn(3); //调整第四列宽度
+//		        sheet.autoSizeColumn(4); //调整第四列宽度
+//		        sheet.autoSizeColumn(5); //调整第四列宽度
+				setSizeColumn(sheet, 6);
 				sheet.autoSizeColumn(0); //调整第一列宽度
 		        sheet.autoSizeColumn(1); //调整第二列宽度
-		        sheet.autoSizeColumn(2); //调整第三列宽度
-		        sheet.autoSizeColumn(3); //调整第四列宽度
-		        sheet.autoSizeColumn(4); //调整第四列宽度
-		        sheet.autoSizeColumn(5); //调整第四列宽度
-//				setSizeColumn(sheet, 6);
 			}
 		});
 		File file = new File(fileName);
@@ -261,7 +263,7 @@ class OotApplicationTests {
 	private void setSizeColumn(XSSFSheet sheet, int size) {
         for (int columnNum = 0; columnNum < size; columnNum++) {
             int columnWidth = sheet.getColumnWidth(columnNum) / 256;
-            for (int rowNum = 0; rowNum < sheet.getLastRowNum(); rowNum++) {
+            for (int rowNum = 1; rowNum < sheet.getLastRowNum(); rowNum++) {
                 XSSFRow currentRow;
                 //当前行未被使用过
                 if (sheet.getRow(rowNum) == null) {
@@ -274,13 +276,15 @@ class OotApplicationTests {
                     XSSFCell currentCell = currentRow.getCell(columnNum);
                     if (currentCell.getCellType() == CellType.STRING) {
                         int length = currentCell.getStringCellValue().getBytes().length;
-                        if (columnWidth < length) {
+                        if(length>255) {
+                        	columnWidth = 255;
+                        }else if (columnWidth < length) {
                             columnWidth = length;
                         }
                     }
                 }
             }
-            sheet.setColumnWidth(columnNum, columnWidth);
+            sheet.setColumnWidth(columnNum, columnWidth * 256);
         }
     }
 
