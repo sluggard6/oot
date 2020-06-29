@@ -34,4 +34,5 @@ out/
 
 
 ### project ###
-aa.xlsx
+*.xlsx
+*.docx

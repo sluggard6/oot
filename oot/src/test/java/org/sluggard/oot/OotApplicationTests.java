@@ -2,12 +2,14 @@ package org.sluggard.oot;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.util.CellRangeAddress;
@@ -20,12 +22,18 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.apache.poi.xwpf.usermodel.XWPFStyle;
+import org.apache.poi.xwpf.usermodel.XWPFStyles;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.junit.jupiter.api.Test;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STJc;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STVerticalJc;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTDecimalNumber;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTOnOff;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTString;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTStyle;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STStyleType;
 import org.sluggard.oot.bean.TableInfo;
 import org.sluggard.oot.dao.SimpleDao;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +50,7 @@ class OotApplicationTests {
 	@Test
 	void contextLoads() throws Exception {
 		List<TableInfo> list = simpleDao.runSimpleSql();
-		Map<String, List<TableInfo>> map = new HashMap<>();
+		Map<String, List<TableInfo>> map = new TreeMap<>();
 		list.forEach(t -> {
 			System.out.println(t);
 			if(!map.containsKey(t.getTableName())) {
@@ -51,12 +59,78 @@ class OotApplicationTests {
 			}
 			map.get(t.getTableName()).add(t);
 		});
-		writeToExcel(map, "aa.xlsx");
+//		writeToExcel(map, "aa.xlsx");
+		writeToWord(map, "aa.docx");;
 	}
 	
 	private void writeToWord(Map<String, List<TableInfo>> map, String fileName) throws Exception {
 		XWPFDocument doc = new XWPFDocument();
+		addCustomHeadingStyle(doc, "1", 1);
+    	XWPFParagraph paragraph = doc.createParagraph();
+    	paragraph.setPageBreak(true);
+    	paragraph.setAlignment(ParagraphAlignment.CENTER);
+    	XWPFRun run = paragraph.createRun();
+    	run.setFontSize(40);
+    	run.setText("宝龙PD系统数据字典");
+		map.forEach((k, v)->{
+			if(TABLE_NAME.matcher(k).matches()){
+				createTableParagraph(doc, k, v);
+			}
+		});
+		File file = new File(fileName);
+		if(file.exists()) {
+			file.delete();
+			file.createNewFile();
+		}
+		FileOutputStream stream = new FileOutputStream(file);
+        // 需要抛异常
+		doc.write(stream);
+         //关流
+        stream.close();
 	}
+	
+	/**
+     * 增加自定义标题样式。这里用的是stackoverflow的源码
+     * 
+     * @param docxDocument 目标文档
+     * @param strStyleId 样式名称
+     * @param headingLevel 样式级别
+     */
+    private static void addCustomHeadingStyle(XWPFDocument docxDocument, String strStyleId, int headingLevel) {
+ 
+        CTStyle ctStyle = CTStyle.Factory.newInstance();
+        ctStyle.setStyleId(strStyleId);
+ 
+        CTString styleName = CTString.Factory.newInstance();
+        styleName.setVal(strStyleId);
+        ctStyle.setName(styleName);
+ 
+        CTDecimalNumber indentNumber = CTDecimalNumber.Factory.newInstance();
+        indentNumber.setVal(BigInteger.valueOf(headingLevel));
+ 
+        // lower number > style is more prominent in the formats bar
+        ctStyle.setUiPriority(indentNumber);
+ 
+        CTOnOff onoffnull = CTOnOff.Factory.newInstance();
+        ctStyle.setUnhideWhenUsed(onoffnull);
+ 
+        // style shows up in the formats bar
+        ctStyle.setQFormat(onoffnull);
+ 
+        // style defines a heading of the given level
+        CTPPr ppr = CTPPr.Factory.newInstance();
+        ppr.setOutlineLvl(indentNumber);
+        ctStyle.setPPr(ppr);
+ 
+        XWPFStyle style = new XWPFStyle(ctStyle);
+ 
+        // is a null op if already defined
+        XWPFStyles styles = docxDocument.createStyles();
+ 
+        style.setType(STStyleType.PARAGRAPH);
+        styles.addStyle(style);
+ 
+    }
 	
 	/**
      * 设置表格
@@ -65,35 +139,22 @@ class OotApplicationTests {
      * @param cols
      * @Author Huangxiaocong 2018年12月16日 
      */
-    public void createTableParagraph(XWPFDocument document, int rows, int cols) {
+    public void createTableParagraph(XWPFDocument document, String tableName, List<TableInfo> map) {
 //        xwpfHelperTable.createTable(xdoc, rowSize, cellSize, isSetColWidth, colWidths)
-
-//    	XWPFHelperTable xwpfHelperTable = new XWPFHelperTable();
-//    	XWPFHelper xwpfHelper = new XWPFHelper();
-        XWPFTable infoTable = document.createTable(rows, cols);
-//        xwpfHelperTable.setTableWidthAndHAlign(infoTable, "9072", STJc.CENTER);
-//        //合并表格
-//        xwpfHelperTable.mergeCellsHorizontal(infoTable, 1, 1, 5);
-//        xwpfHelperTable.mergeCellsVertically(infoTable, 0, 3, 6);
-//        for(int col = 3; col < 7; col++) {
-//            xwpfHelperTable.mergeCellsHorizontal(infoTable, col, 1, 5);
-//        }
-        //设置表格样式
-        List<XWPFTableRow> rowList = infoTable.getRows();
-        for(int i = 0; i < rowList.size(); i++) {
-            XWPFTableRow infoTableRow = rowList.get(i);
-            List<XWPFTableCell> cellList = infoTableRow.getTableCells();
-            for(int j = 0; j < cellList.size(); j++) {
-                XWPFParagraph cellParagraph = cellList.get(j).getParagraphArray(0);
-                cellParagraph.setAlignment(ParagraphAlignment.CENTER);
-                XWPFRun cellParagraphRun = cellParagraph.createRun();
-                cellParagraphRun.setFontSize(12);
-                if(i % 2 != 0) {
-                    cellParagraphRun.setBold(true);
-                }
-            }
-        }
-//        xwpfHelperTable.setTableHeight(infoTable, 560, STVerticalJc.CENTER);
+    	XWPFParagraph paragraph = document.createParagraph();
+    	paragraph.setStyle("1");
+    	paragraph.setPageBreak(true);
+    	XWPFRun run = paragraph.createRun();
+    	String tComments = map.get(0).gettComments();
+    	if(StringUtils.isNoneBlank(tComments)) {
+    		run.setText(String.format("%s : %s", tableName, map.get(0).gettComments()));
+    	}else {
+    		run.setText(tableName);
+    	}
+    	
+    	
+    	XWPFTable table = document.createTable(map.size()+1, 6);
+    	fillTableData(table, tableName, map);
     }
     
     /**
@@ -102,66 +163,24 @@ class OotApplicationTests {
      * @param tableData
      * @Author Huangxiaocong 2018年12月16日
      */
-    public void fillTableData(XWPFTable table, List<TableInfo> tableData) {
+    public void fillTableData(XWPFTable table, String tableName, List<TableInfo> tableData) {
         List<XWPFTableRow> rowList = table.getRows();
         List<XWPFTableCell> cellList = rowList.get(0).getTableCells();
-        XWPFParagraph cellParagraph = cellList.get(0).getParagraphArray(0);
-        XWPFRun cellParagraphRun = cellParagraph.getRuns().get(0);
-        cellParagraph.getRuns().get(0).setText("列名");
-        cellParagraph = cellList.get(1).getParagraphArray(0);
-        cellParagraphRun = cellParagraph.getRuns().get(0);
-        cellParagraphRun.setText("数据类型");
-        cellParagraph = cellList.get(2).getParagraphArray(0);
-        cellParagraphRun = cellParagraph.getRuns().get(0);
-        cellParagraphRun.setText("长度");
-        cellParagraph = cellList.get(3).getParagraphArray(0);
-        cellParagraphRun = cellParagraph.getRuns().get(0);
-        cellParagraphRun.setText("小数位");
-        cellParagraph = cellList.get(4).getParagraphArray(0);
-        cellParagraphRun = cellParagraph.getRuns().get(0);
-        cellParagraphRun.setText("默认值");
-        cellParagraph = cellList.get(5).getParagraphArray(0);
-        cellParagraphRun = cellParagraph.getRuns().get(0);
-        cellParagraphRun.setText("说明");
-//		cell = row.createCell(0);
-//		cell.setCellStyle(style);
-//		cell.setCellValue("列名");
-//		cell = row.createCell(1);
-//		cell.setCellStyle(style);
-//		cell.setCellValue("数据类型");
-//		cell = row.createCell(2);
-//		cell.setCellStyle(style);
-//		cell.setCellValue("长度");
-//		cell = row.createCell(3);
-//		cell.setCellStyle(style);
-//		cell.setCellValue("小数位");
-//		cell = row.createCell(4);
-//		cell.setCellStyle(style);
-//		cell.setCellValue("默认值");
-//		cell = row.createCell(5);
-//		cell.setCellStyle(style);
-//		cell.setCellValue("说明");
+        cellList.get(0).setText("列名");
+        cellList.get(1).setText("数据类型");
+        cellList.get(2).setText("长度");
+        cellList.get(3).setText("小数位");
+        cellList.get(4).setText("默认值");
+        cellList.get(5).setText("说明");
         for(int i = 0; i < tableData.size(); i++) {
 			TableInfo ti = tableData.get(i);
-            cellList = rowList.get(i+2).getTableCells();
-            cellParagraph = cellList.get(0).getParagraphArray(0);
-            cellParagraphRun = cellParagraph.getRuns().get(0);
-            cellParagraphRun.setText(String.valueOf(ti.getColumnName()));
-            cellParagraph = cellList.get(1).getParagraphArray(0);
-            cellParagraphRun = cellParagraph.getRuns().get(0);
-            cellParagraphRun.setText(String.valueOf(ti.getDataType()));
-            cellParagraph = cellList.get(2).getParagraphArray(0);
-            cellParagraphRun = cellParagraph.getRuns().get(0);
-            cellParagraphRun.setText(String.valueOf(ti.getDataLength()));
-            cellParagraph = cellList.get(3).getParagraphArray(0);
-            cellParagraphRun = cellParagraph.getRuns().get(0);
-            cellParagraphRun.setText(String.valueOf(ti.getDataScale()));
-            cellParagraph = cellList.get(4).getParagraphArray(0);
-            cellParagraphRun = cellParagraph.getRuns().get(0);
-            cellParagraphRun.setText(String.valueOf(ti.getDataDefault()));
-            cellParagraph = cellList.get(5).getParagraphArray(0);
-            cellParagraphRun = cellParagraph.getRuns().get(0);
-            cellParagraphRun.setText(String.valueOf(ti.getcComments()));
+            cellList = rowList.get(i+1).getTableCells();
+            cellList.get(0).setText(ti.getColumnName());
+            cellList.get(1).setText(ti.getDataType());
+            cellList.get(2).setText(ti.getDataLength());
+            cellList.get(3).setText(ti.getDataScale());
+            cellList.get(4).setText(ti.getDataDefault());
+            cellList.get(5).setText(ti.getcComments());
         }
     }
 	
@@ -252,6 +271,10 @@ class OotApplicationTests {
 			}
 		});
 		File file = new File(fileName);
+		if(file.exists()) {
+			file.delete();
+			file.createNewFile();
+		}
 		FileOutputStream stream = new FileOutputStream(file);
         // 需要抛异常
         workbook.write(stream);
